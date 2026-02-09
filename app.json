@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "DepScan",
+    "slug": "dep-scan",
     "version": "1.0.0",
 
     "web": {
