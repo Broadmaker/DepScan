@@ -1,99 +1,172 @@
-import React, { useState, useRef } from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, Image } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ScannerStackParamList } from '../../types';
-import { Ionicons } from '@expo/vector-icons';
-import { Camera, CameraType, CameraCapturedPicture, useCameraPermissions } from 'expo-camera';
+import {
+  CameraView,
+  CameraType,
+  useCameraPermissions,
+} from "expo-camera";
+import { useRef, useState } from "react";
+import { SafeAreaView, View, Text, Pressable, Image, Dimensions } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-type Props = NativeStackScreenProps<ScannerStackParamList, 'CameraView'>;
+const { width, height } = Dimensions.get("window");
 
-export default function CameraViewScreen({ navigation }: Props) {
-  const cameraRef = useRef<InstanceType<typeof Camera> | null>(null);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
-
+export default function CameraViewScreen() {
   const [permission, requestPermission] = useCameraPermissions();
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [facing, setFacing] = useState<CameraType>("back");
 
-  if (!permission) {
-    return (
-      <SafeAreaView className="flex-1 bg-black justify-center items-center">
-        <Text className="text-white">Requesting camera permission...</Text>
-      </SafeAreaView>
-    );
-  }
+  const cameraRef = useRef<CameraView>(null);
+
+  if (!permission) return <View />;
 
   if (!permission.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-black justify-center items-center">
-        <Text className="text-white mb-4">Camera permission denied</Text>
-        <TouchableOpacity
-          className="bg-blue-600 px-4 py-2 rounded"
+      <SafeAreaView className="flex-1 justify-center items-center bg-gray-100 px-4">
+        <Text className="text-gray-800 text-center text-lg mb-6">
+          Camera permission is required
+        </Text>
+        <Pressable
+          className="bg-blue-600 px-6 py-3 rounded-full shadow-lg"
           onPress={requestPermission}
         >
-          <Text className="text-white">Grant Permission</Text>
-        </TouchableOpacity>
+          <Text className="text-white font-semibold text-base">Grant Permission</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
 
-  const takePicture = async () => {
+  const takePhoto = async () => {
     if (cameraRef.current) {
-      const photo: CameraCapturedPicture = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-      });
-      setPhotoUri(photo.uri);
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        setPhotoUri(photo.uri);
+      } catch (error) {
+        console.error("Error taking photo:", error);
+      }
     }
   };
 
-  return (
-    <SafeAreaView className="flex-1 bg-black">
-      {!photoUri ? (
-        <Camera ref={cameraRef} style={{ flex: 1 }} type={CameraType.back} ratio="4:3">
-          {/* Overlay */}
-          <View className="flex-1 justify-center items-center">
-            <View className="border-2 border-white w-72 h-96 justify-center items-center rounded-lg">
-              <Text className="text-white text-sm text-center opacity-80">
-                Align answer sheet here
-              </Text>
+  const toggleFacing = () =>
+    setFacing((prev) => (prev === "back" ? "front" : "back"));
+
+// Frame dimensions
+const frameMarginH = width * 0.1; // Adjusted for some more horizontal padding
+const frameMarginV = height * 0.1; // Adjusting the vertical margin to move the frame up
+const frameWidth = width - frameMarginH * 2;
+const frameHeight = height * 0.7; // Make the frame 60% of screen height (can adjust more)
+const cornerLength = 30;
+const cornerThickness = 4;
+
+  const renderCamera = () => (
+    <View className="absolute inset-0">
+      {/* Camera preview */}
+      <CameraView
+        ref={cameraRef}
+        style={{ flex: 1 }}
+        facing={facing}
+        mode="picture"
+        mute={false}
+      />
+
+      {/* Dark overlay outside the frame */}
+      <View
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width,
+          height,
+          backgroundColor: "rgba(0,0,0,0.3)",
+        }}
+      />
+
+      {/* Frame cutout */}
+      <View
+        style={{
+          position: "absolute",
+          top: frameMarginV,
+          left: frameMarginH,
+          width: frameWidth,
+          height: frameHeight,
+        }}
+      >
+        {/* Corner brackets */}
+        {["tl", "tr", "bl", "br"].map((pos) => {
+          const styles: any = {
+            tl: { top: 0, left: 0 },
+            tr: { top: 0, right: 0 },
+            bl: { bottom: 0, left: 0 },
+            br: { bottom: 0, right: 0 },
+          };
+          return (
+            <View key={pos} style={{ position: "absolute", ...styles[pos] }}>
+              {/* Horizontal line */}
+              <View
+                style={{
+                  width: cornerLength,
+                  height: cornerThickness,
+                  backgroundColor: "white",
+                }}
+              />
+              {/* Vertical line */}
+              <View
+                style={{
+                  width: cornerThickness,
+                  height: cornerLength,
+                  backgroundColor: "white",
+                  position: "absolute",
+                  ...(pos.includes("r") ? { right: 0 } : { left: 0 }),
+                  ...(pos.includes("b") ? { bottom: 0 } : { top: 0 }),
+                }}
+              />
             </View>
-          </View>
+          );
+        })}
+      </View>
 
-          {/* Controls */}
-          <View className="absolute bottom-8 left-0 right-0 flex-row justify-around items-center px-4">
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Ionicons name="close" size={32} color="white" />
-            </TouchableOpacity>
+      {/* Shutter + rotation buttons */}
+     {/* Shutter + rotation buttons */}
+<View className="absolute bottom-12 w-full flex-row items-center justify-center">
+  {/* Shutter button (centered) */}
+  <Pressable
+    className="w-20 h-20 rounded-full bg-white justify-center items-center shadow-lg"
+    onPress={takePhoto}
+  >
+    <View className="w-14 h-14 rounded-full bg-white" />
+  </Pressable>
 
-            <TouchableOpacity
-              className="bg-white w-16 h-16 rounded-full justify-center items-center"
-              onPress={takePicture}
-            >
-              <Ionicons name="camera" size={28} color="black" />
-            </TouchableOpacity>
+  {/* Rotate camera button (pushed right) */}
+  <Pressable
+    className="absolute right-10 w-14 h-14 rounded-full bg-gray-800 bg-opacity-70 justify-center items-center shadow-lg"
+    onPress={toggleFacing}
+  >
+    <Ionicons name="camera-reverse-outline" size={26} color="white" />
+  </Pressable>
+</View>
 
-            <View className="w-8" />
-          </View>
-        </Camera>
-      ) : (
-        <View className="flex-1 bg-black">
-          <Image source={{ uri: photoUri }} className="flex-1" resizeMode="contain" />
+    </View>
+  );
 
-          <View className="flex-row justify-around items-center p-6 bg-black">
-            <TouchableOpacity
-              className="bg-white px-6 py-2 rounded-lg"
-              onPress={() => setPhotoUri(null)}
-            >
-              <Text>Retake</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="bg-blue-600 px-6 py-2 rounded-lg"
-              onPress={() => navigation.navigate('ReviewScan', { uri: photoUri })}
-            >
-              <Text className="text-white">Use Photo</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+  const renderPhoto = () => (
+    <View className="flex-1 justify-center items-center bg-gray-100 px-4">
+      {photoUri && (
+        <Image
+          source={{ uri: photoUri }}
+          className="w-full h-3/4 rounded-2xl"
+          resizeMode="contain"
+        />
       )}
+      <Pressable
+        className="bg-blue-600 px-6 py-3 rounded-full mt-6 shadow-lg"
+        onPress={() => setPhotoUri(null)}
+      >
+        <Text className="text-white font-semibold text-base">Retake</Text>
+      </Pressable>
+    </View>
+  );
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-100">
+      {photoUri ? renderPhoto() : renderCamera()}
     </SafeAreaView>
   );
 }
